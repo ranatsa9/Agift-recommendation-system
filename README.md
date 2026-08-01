@@ -13,7 +13,7 @@
 
 [Live App](https://gift-recommendation-system-qd6x526czuix9ayv7pkif3.streamlit.app/) · [API Health](https://agift-recommendation-system-eta.vercel.app/health) · [API Docs](https://agift-recommendation-system-eta.vercel.app/docs) · [Results](#model-evaluation) · [Run Locally](#running-locally)
 
-*Machine Learning Graduation Project — 2026*
+*Machine Learning Graduation Project - 2026*
 
 </div>
 
