@@ -23,19 +23,24 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-def resolve_api_url() -> str:
-    """Use Streamlit Cloud secrets first, then environment/local defaults."""
-    try:
-        secret_url = st.secrets.get("FASTAPI_URL", "")
-    except (FileNotFoundError, KeyError):
-        secret_url = ""
+DEFAULT_FASTAPI_URL = "https://agift-recommendation-system-eta.vercel.app"
 
-    return str(
-        secret_url
+
+def resolve_api_url():
+    try:
+        configured_url = (
+            st.secrets.get("FASTAPI_URL")
+            or st.secrets.get("GIFT_API_URL")
+        )
+    except Exception:
+        configured_url = None
+
+    return (
+        configured_url
         or os.getenv("FASTAPI_URL")
         or os.getenv("GIFT_API_URL")
-        or "http://127.0.0.1:8000"
-    ).strip().rstrip("/")
+        or DEFAULT_FASTAPI_URL
+    ).rstrip("/")
 
 
 DEFAULT_API_URL = resolve_api_url()
