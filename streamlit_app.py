@@ -26,10 +26,7 @@ st.set_page_config(
 def resolve_api_url() -> str:
     """Use Streamlit Cloud secrets first, then environment/local defaults."""
     try:
-        secret_url = (
-            st.secrets.get("FASTAPI_URL", "")
-            or st.secrets.get("GIFT_API_URL", "")
-        )
+        secret_url = st.secrets.get("FASTAPI_URL", "")
     except (FileNotFoundError, KeyError):
         secret_url = ""
 
@@ -37,7 +34,7 @@ def resolve_api_url() -> str:
         secret_url
         or os.getenv("FASTAPI_URL")
         or os.getenv("GIFT_API_URL")
-        or "https://agift-recommendation-system-pol9rq02r-g2-e3d4.vercel.app"
+        or "http://127.0.0.1:8000"
     ).strip().rstrip("/")
 
 
@@ -585,25 +582,22 @@ def normalize_response(payload: Any) -> tuple[list[dict[str, Any]], dict[str, An
     return recommendations, payload
 
 
-@st.cache_data(ttl=60, show_spinner=False)
-def load_options(api_url: str) -> tuple[dict[str, list[str]], bool, str]:
+@st.cache_data(ttl=300, show_spinner=False)
+def load_options(api_url: str) -> tuple[dict[str, list[str]], bool]:
     try:
-        # Vercel may need several seconds to wake the model on a cold start.
-        response = requests.get(f"{api_url}/options", timeout=30)
+        response = requests.get(f"{api_url}/options", timeout=4)
         response.raise_for_status()
         data = response.json()
         return {
             key: data.get(key) or DEFAULT_OPTIONS[key]
             for key in ("interests", "occasions", "genders")
-        }, True, ""
-    except requests.RequestException as exc:
-        return DEFAULT_OPTIONS, False, f"{type(exc).__name__}: {exc}"
-    except (ValueError, TypeError) as exc:
-        return DEFAULT_OPTIONS, False, f"Invalid API response: {exc}"
+        }, True
+    except (requests.RequestException, ValueError, TypeError):
+        return DEFAULT_OPTIONS, False
 
 
 def request_recommendations(api_url: str, query: dict[str, Any]) -> dict[str, Any]:
-    response = requests.post(f"{api_url}/recommend", json=query, timeout=60)
+    response = requests.post(f"{api_url}/recommend", json=query, timeout=25)
     try:
         body = response.json()
     except ValueError:
@@ -1001,7 +995,6 @@ with st.sidebar:
 artifact = None
 artifact_error = None
 api_connected = False
-api_error = ""
 
 # FastAPI serves recommendations, while the bundled artifact powers Explore
 # and Model Insights. Loading is cached, so reruns do not reload the joblib file.
@@ -1011,7 +1004,7 @@ except Exception as exc:
     artifact_error = str(exc)
 
 if data_source == "FastAPI":
-    options, api_connected, api_error = load_options(api_url)
+    options, api_connected = load_options(api_url)
 elif artifact is not None:
     metadata = artifact["metadata"]
     options = {key: metadata[key] for key in ("interests", "occasions", "genders")}
@@ -1027,10 +1020,6 @@ with st.sidebar:
         st.info("Presentation demo data")
     else:
         st.error(f"{data_source} is unavailable")
-        if data_source == "FastAPI":
-            st.caption(f"API: {api_url}")
-            if api_error:
-                st.caption(api_error)
 
 if page == "⌘ Explore":
     if artifact is None:
