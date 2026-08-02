@@ -212,7 +212,7 @@ def recommend(req: GiftRequest) -> dict:
     catalog_mask = None
     if targeted_interests:
         searchable = (
-            ENGINE.catalog[["product_name", "category", "sub_category", "description"]]
+            ENGINE.catalog[["product_name", "brand", "category", "sub_category", "description"]]
             .fillna("")
             .astype(str)
             .agg(" ".join, axis=1)
@@ -246,6 +246,31 @@ def recommend(req: GiftRequest) -> dict:
         top_k=candidate_k,
         catalog_mask=catalog_mask,
     )
+    # Defence in depth: never allow downloadable/PC-game products to leak into
+    # a non-gaming specific-interest result, even if a title contains words such
+    # as "phone", "cooking", or "running". Returning fewer correct gifts is
+    # preferable to padding the shortlist with unrelated games.
+    if (
+        not recs.empty
+        and targeted_interests
+        and "PC & Console Gaming" not in targeted_interests
+    ):
+        result_search_columns = [
+            column
+            for column in ("product_name", "brand", "category", "sub_category", "description")
+            if column in recs.columns
+        ]
+        result_searchable = (
+            recs[result_search_columns]
+            .fillna("")
+            .astype(str)
+            .agg(" ".join, axis=1)
+        )
+        game_leak = result_searchable.str.contains(
+            DIGITAL_GAME_PATTERN, case=False, regex=True
+        )
+        diagnostics["digital_games_removed"] = int(game_leak.sum())
+        recs = recs.loc[~game_leak].copy()
     if not recs.empty:
         price = recs["price_median"].fillna(recs["price_min"]).astype(float)
         # Aim around 70% of the maximum: close enough to the stated budget
