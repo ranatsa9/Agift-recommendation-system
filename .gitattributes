@@ -1,1 +1,2 @@
 *.joblib filter=lfs diff=lfs merge=lfs -text
+models/gift_recommender_v4.joblib -filter -diff -merge
